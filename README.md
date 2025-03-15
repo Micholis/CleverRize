@@ -9,8 +9,8 @@ Download [Rize framework](rize.bpi)
 Include framework to you project
 `include "rize"`
 
-##Docs
-###Settings
+## Docs
+### Settings
 Framework functions have basic sattings
 
 `CONST_LINE_SENSOR_1_PORT`
@@ -42,22 +42,22 @@ Framework functions have basic sattings
 
 `CONST_ADITIONAL_MOTOR_POWER`
 
-###Moving
-####`Level()`
+### Moving
+#### `Level()`
 Aligns the robot from the wall
 
-####`Forward(in number cm)`
+#### `Forward(in number cm)`
 Moves forward a robot for `cm` santimetres
 
-####`Backward(in number cm)`
+#### `Backward(in number cm)`
 Moves Backward a robot for `cm` santimetres
 
-###Rotating
-####`Left()`
+### Rotating
+#### `Left()`
 Turns a robot left
 
-####`Right()`
+#### `Right()`
 Turns a robot right
 
-####`Reversal()`
+#### `Reversal()`
 Turns a robot around
