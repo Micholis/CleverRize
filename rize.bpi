@@ -1,0 +1,341 @@
+CONST_LINE_SENSOR_1_PORT = 1
+CONST_LINE_SENSOR_2_PORT = 2
+CONST_COLOR_SENSOR_PORT = 3
+CONST_ADITIONAL_MOTOR_PORT = "a"
+
+CONST_LINE_PID_P_COEFFICIENT = 2
+CONST_LINE_PID_I_COEFFICIENT = 0
+CONST_LINE_PID_D_COEFFICIENT = 0
+CONST_LINE_POWER = 40
+CONST_LINE_CROSS_THRESHOLD = 110
+
+CONST_COLOR_RECOGNITION_SPREAD = 15
+CONST_COLOR_RECOGNITION_RED_VALUE = 10
+CONST_COLOR_RECOGNITION_YELLOW_VALUE = 40
+CONST_COLOR_RECOGNITION_GREEN_VALUE = 120
+CONST_COLOR_RECOGNITION_BLUE_VALUE = 175
+
+CONST_CENTIMETRES_MULTIPLIER = 21
+CONST_MOVE_POWER = 50
+CONST_MOVE_TURN = 0
+CONST_ROTATE_POWER = 30
+CONST_ROTATE_ANGLE = 175
+
+CONST_LEVEL_POWER = 40
+CONST_LEVEL_TIME = 2000
+CONST_LEVEL_DISTANCE = 100
+
+CONST_ADITIONAL_MOTOR_POWER = 10
+
+OUT_CURRENT_COLOR = 0
+
+f = EV3File.OpenRead("settings.pid")
+CONST_LINE_PID_P_COEFFICIENT = EV3File.ConvertToNumber(EV3File.ReadLine(f))
+CONST_LINE_PID_I_COEFFICIENT = EV3File.ConvertToNumber(EV3File.ReadLine(f))
+CONST_LINE_PID_D_COEFFICIENT = EV3File.ConvertToNumber(EV3File.ReadLine(f))
+CONST_LINE_POWER = EV3File.ConvertToNumber(EV3File.ReadLine(f))
+EV3File.Close(f)
+
+If CONST_COLOR_SENSOR_PORT <> 0 Then
+  Sensor.SetMode(CONST_COLOR_SENSOR_PORT,4)
+EndIf
+
+Function ReadColor(out number color)
+  Program.Delay(1000)
+  spread = @CONST_COLOR_RECOGNITION_SPREAD
+  r = 0
+  g = 0
+  b = 0
+  rq = 0
+  gq = 0
+  bq = 0
+  For i=1 To 10
+    If @CONST_COLOR_SENSOR_PORT = 1 Then
+      Sensor1.Raw3(rq,gq,bq)
+    ElseIf @CONST_COLOR_SENSOR_PORT = 2 Then
+      Sensor2.Raw3(rq,gq,bq)
+    ElseIf @CONST_COLOR_SENSOR_PORT = 3 Then
+      Sensor3.Raw3(rq,gq,bq)
+    ElseIf @CONST_COLOR_SENSOR_PORT = 4 Then
+      Sensor4.Raw3(rq,gq,bq)
+    EndIf
+    r = r + rq
+    g = g + gq
+    b = b + bq
+    Program.Delay(10)
+  EndFor
+  r = r / 2550
+  g = g / 2550
+  b = b / 2550
+  LCD.Clear()
+  LCD.Text(1,0,0,2,r)
+  LCD.Text(1,0,20,2,g)
+  LCD.Text(1,0,40,2,b)
+  mx = Math.Max(r,Math.Max(g,b))
+  mn = Math.Min(r,Math.Min(g,b))
+  df = mx-mn
+  If mx = mn Then
+    h = 0
+  ElseIf mx = r Then
+    h = Math.Remainder(60 * ((g-b)/df) + 360, 360)
+  ElseIf mx = g Then
+    h = Math.Remainder(60 * ((b-r)/df) + 120, 360)
+  ElseIf mx = b Then
+    h = Math.Remainder(60 * ((r-g)/df) + 240, 360)
+  EndIf
+  LCD.Text(1,0,60,2,h)
+  color = 6
+  If Math.Abs(r-g) < 0.05 And Math.Abs(g-b) < 0.05 Then
+    color = 1
+  Else
+    If Math.Abs(h-@CONST_COLOR_RECOGNITION_BLUE_VALUE) < spread Then
+      color = 2
+    ElseIf Math.Abs(h-@CONST_COLOR_RECOGNITION_GREEN_VALUE) < spread Then
+      color = 3
+    ElseIf Math.Abs(h-@CONST_COLOR_RECOGNITION_YELLOW_VALUE) < spread Then
+      color = 4
+    ElseIf Math.Abs(h-@CONST_COLOR_RECOGNITION_RED_VALUE) < spread Then
+      color = 5
+    EndIf
+  EndIf
+  LCD.Text(1,0,80,2,color)
+EndFunction
+
+Function ReadColor()
+  ReadColor(@OUT_CURRENT_COLOR)
+EndFunction
+
+Function Delay(in number seconds)
+  Program.Delay(1000*seconds)
+EndFunction
+
+Function RotateAditionalMotor(in number angle)
+  If angle > 0 Then
+    Motor.MovePower(@CONST_ADITIONAL_MOTOR_PORT, @CONST_ADITIONAL_MOTOR_POWER, angle, "true")
+  Else
+    Motor.MovePower(@CONST_ADITIONAL_MOTOR_PORT, -@CONST_ADITIONAL_MOTOR_POWER, angle, "true")
+  EndIf
+EndFunction
+
+Function Level()
+  Motor.StartPower("BC", -@CONST_LEVEL_POWER)
+  Program.Delay(@CONST_LEVEL_TIME)
+  MotorBC.OffAndBrake()
+  Motor.MovePower("BC", @CONST_MOVE_POWER, @CONST_LEVEL_DISTANCE, "true")
+EndFunction
+
+Function Forward(in number cm)
+  Motor.MoveSteer("BC", @CONST_MOVE_POWER, @CONST_MOVE_TURN,  cm*@CONST_CENTIMETRES_MULTIPLIER,"true")
+EndFunction
+
+Function Backward(in number cm)
+  Motor.MoveSteer("BC", -@CONST_MOVE_POWER, @CONST_MOVE_TURN, cm*@CONST_CENTIMETRES_MULTIPLIER,"true")
+EndFunction
+
+Function Left()
+  Motor.MoveSync("BC",-@CONST_ROTATE_POWER,  @CONST_ROTATE_POWER,@CONST_ROTATE_ANGLE,"true")
+EndFunction
+
+Function Right()
+  Motor.MoveSync("BC",@CONST_ROTATE_POWER,-@CONST_ROTATE_POWER,@CONST_ROTATE_ANGLE,"true")
+EndFunction
+
+Function Reversal()
+  Motor.MoveSync("BC",20,-20,340,"true")
+EndFunction
+
+Function LineDistance(in number cm)
+  i = 0
+  od = 0
+  
+  MotorB.ResetCount()
+  MotorC.ResetCount()
+  While MotorB.GetTacho() + MotorC.GetTacho() < cm * 42
+    sensor1 = Sensor.ReadPercent(@CONST_LINE_SENSOR_1_PORT)
+    sensor2 = Sensor.ReadPercent(@CONST_LINE_SENSOR_2_PORT)
+    p = sensor1 - sensor2
+    i = i + p
+    d = p - od
+    od = p
+    pid = p * @CONST_LINE_PID_P_COEFFICIENT + i * @CONST_LINE_PID_I_COEFFICIENT + d * @CONST_LINE_PID_D_COEFFICIENT
+    MotorB.StartPower(@CONST_LINE_POWER + pid)
+    MotorC.StartPower(@CONST_LINE_POWER - pid)
+    
+    If Buttons.GetClicks() = "E" Then
+      Buttons.Flush()
+      MotorBC.OffAndBrake()
+      PidEditor()
+    EndIf
+    
+    Program.Delay(10)
+  EndWhile
+  
+  MotorBC.OffAndBrake()
+EndFunction
+
+Function LineCross()
+  i = 0
+  od = 0
+  
+  sensor1 = Sensor.ReadPercent(1)
+  sensor2 = Sensor.ReadPercent(2)
+  While sensor1+sensor2 > @CONST_LINE_CROSS_THRESHOLD
+    sensor1 = Sensor.ReadPercent(@CONST_LINE_SENSOR_1_PORT)
+    sensor2 = Sensor.ReadPercent(@CONST_LINE_SENSOR_2_PORT)
+    p = sensor1 - sensor2
+    i = i + p
+    d = p - od
+    od = p
+    pid = p * @CONST_LINE_PID_P_COEFFICIENT + i * @CONST_LINE_PID_I_COEFFICIENT + d * @CONST_LINE_PID_D_COEFFICIENT
+    MotorB.StartPower(@CONST_LINE_POWER + pid)
+    MotorC.StartPower(@CONST_LINE_POWER - pid)
+    
+    If Buttons.GetClicks() = "E" Then
+      Buttons.Flush()
+      MotorBC.OffAndBrake()
+      PidEditor()
+    EndIf
+    
+    Program.Delay(10)
+  EndWhile
+  Forward(5)
+  
+  MotorBC.OffAndBrake()
+EndFunction
+
+Function LineButton()
+  i = 0
+  od = 0
+  
+  flag = 1
+  While flag=1
+    sensor1 = Sensor.ReadPercent(@CONST_LINE_SENSOR_1_PORT)
+    sensor2 = Sensor.ReadPercent(@CONST_LINE_SENSOR_2_PORT)
+    p = sensor1 - sensor2
+    i = i + p
+    d = p - od
+    od = p
+    pid = p * @CONST_LINE_PID_P_COEFFICIENT + i * @CONST_LINE_PID_I_COEFFICIENT + d * @CONST_LINE_PID_D_COEFFICIENT
+    MotorB.StartPower(@CONST_LINE_POWER + pid)
+    MotorC.StartPower(@CONST_LINE_POWER - pid)
+    
+    btn = Buttons.GetClicks()
+    If btn = "E" Then
+      Buttons.Flush()
+      MotorBC.OffAndBrake()
+      PidEditor()
+    ElseIf btn =  "U" Then
+      flag = 0
+    EndIf
+    
+    Program.Delay(10)
+  EndWhile
+  
+  MotorBC.OffAndBrake()
+EndFunction
+
+Function PidEditor()
+  f = EV3File.OpenRead("settings.pid")
+  @CONST_LINE_PID_P_COEFFICIENT = EV3File.ConvertToNumber(EV3File.ReadLine(f))
+  @CONST_LINE_PID_I_COEFFICIENT = EV3File.ConvertToNumber(EV3File.ReadLine(f))
+  @CONST_LINE_PID_D_COEFFICIENT = EV3File.ConvertToNumber(EV3File.ReadLine(f))
+  @CONST_LINE_POWER = EV3File.ConvertToNumber(EV3File.ReadLine(f))
+  EV3File.Close(f)
+  
+  flag = 0
+  selected = 0
+  opened = 0
+  mul = 0
+  While flag = 0
+    LCD.Clear()
+    LCD.Text(1,0,0,1,"   ---PID EDITOR--- v1")
+    LCD.Line(1,0,12,177,12)
+    LCD.Text(1,10,20,1,"KP = ")
+    LCD.Text(1,50,20,1,@CONST_LINE_PID_P_COEFFICIENT)
+    LCD.Text(1,10,30,1,"KI = ")
+    LCD.Text(1,50,30,1,@CONST_LINE_PID_I_COEFFICIENT)
+    LCD.Text(1,10,40,1,"KD = ")
+    LCD.Text(1,50,40,1,@CONST_LINE_PID_D_COEFFICIENT)
+    LCD.Text(1,10,50,1,"SPEED = ")
+    LCD.Text(1,75,50,1,@CONST_LINE_POWER)
+    LCD.Text(1,10,60,1,"RUN")
+    LCD.Text(1,10,70,1,"EXIT")
+    
+    If opened = 1 Then
+      LCD.Text(1,0,selected*10+20, 1, "*")
+      LCD.Text(1,0,120, 1, Math.Power(10,mul))
+    Else
+      LCD.Text(1,0,selected*10+20, 1, ">")
+    EndIf
+    
+    Buttons.Wait()
+    If Buttons.Current="D" Then
+      If opened = 1 Then
+        If selected = 0 Then
+          @CONST_LINE_PID_P_COEFFICIENT = @CONST_LINE_PID_P_COEFFICIENT - Math.Power(10,mul)
+        ElseIf selected = 1 Then
+          @CONST_LINE_PID_I_COEFFICIENT = @CONST_LINE_PID_I_COEFFICIENT - Math.Power(10,mul)
+        ElseIf selected = 2 Then
+          @CONST_LINE_PID_D_COEFFICIENT = @CONST_LINE_PID_D_COEFFICIENT - Math.Power(10,mul)
+        ElseIf selected = 3 Then
+          @CONST_LINE_POWER = @CONST_LINE_POWER - Math.Power(10,mul)
+        EndIf
+      Else
+        selected = selected + 1
+      EndIf
+    ElseIf Buttons.Current="U" Then
+      If opened = 1 Then
+        If selected = 0 Then
+          @CONST_LINE_PID_P_COEFFICIENT = @CONST_LINE_PID_P_COEFFICIENT + Math.Power(10,mul)
+        ElseIf selected = 1 Then
+          @CONST_LINE_PID_I_COEFFICIENT = @CONST_LINE_PID_I_COEFFICIENT + Math.Power(10,mul)
+        ElseIf selected = 2 Then
+          @CONST_LINE_PID_D_COEFFICIENT = @CONST_LINE_PID_D_COEFFICIENT + Math.Power(10,mul)
+        ElseIf selected = 3 Then
+          @CONST_LINE_POWER = @CONST_LINE_POWER + Math.Power(10,mul)
+        EndIf
+      Else
+        selected = selected - 1
+      EndIf
+    ElseIf Buttons.Current="E" Then
+      If selected = 4 Then
+        flag = 1
+      ElseIf selected = 5 Then
+        flag = 2
+      Else
+        If opened = 1 Then
+          opened = 0
+        Else
+          opened = 1
+        EndIf
+      EndIf
+    ElseIf Buttons.Current="L" Then
+      mul = mul - 1
+    ElseIf Buttons.Current="R" Then
+      mul = mul + 1
+    EndIf
+    mul = Math.Max(-3,Math.Min(mul,1))
+    selected = Math.Max(0,Math.Min(selected,5))
+    @CONST_LINE_PID_P_COEFFICIENT = Math.Max(0,Math.Min(@CONST_LINE_PID_P_COEFFICIENT,20))
+    @CONST_LINE_PID_I_COEFFICIENT = Math.Max(0,Math.Min(@CONST_LINE_PID_I_COEFFICIENT,0.01))
+    @CONST_LINE_PID_D_COEFFICIENT = Math.Max(0,Math.Min(@CONST_LINE_PID_D_COEFFICIENT,20))
+    @CONST_LINE_POWER = Math.Max(0,Math.Min(@CONST_LINE_POWER,100))
+    Buttons.Flush()
+    
+    Program.Delay(10)
+  EndWhile
+  
+  f = EV3File.OpenWrite("settings.pid")
+  EV3File.WriteLine(f,@CONST_LINE_PID_P_COEFFICIENT)
+  EV3File.WriteLine(f,@CONST_LINE_PID_I_COEFFICIENT)
+  EV3File.WriteLine(f,@CONST_LINE_PID_D_COEFFICIENT)
+  EV3File.WriteLine(f,@CONST_LINE_POWER)
+  EV3File.Close(f)
+  
+  If flag = 2 Then
+    Program.End()
+  EndIf
+  
+  LCD.Clear()
+  Buttons.Flush()
+EndFunction
