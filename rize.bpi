@@ -8,12 +8,14 @@ CONST_LINE_PID_I_COEFFICIENT = 0
 CONST_LINE_PID_D_COEFFICIENT = 0
 CONST_LINE_POWER = 40
 CONST_LINE_CROSS_THRESHOLD = 110
+CONST_LINE_CROSS_FORWARD = 5
 
 CONST_COLOR_RECOGNITION_SPREAD = 15
 CONST_COLOR_RECOGNITION_RED_VALUE = 10
 CONST_COLOR_RECOGNITION_YELLOW_VALUE = 40
 CONST_COLOR_RECOGNITION_GREEN_VALUE = 120
 CONST_COLOR_RECOGNITION_BLUE_VALUE = 175
+CONST_COLOR_RECOGNITION_SAY = 0
 
 CONST_CENTIMETRES_MULTIPLIER = 21
 CONST_MOVE_POWER = 50
@@ -27,6 +29,10 @@ CONST_LEVEL_DISTANCE = 100
 
 CONST_ADITIONAL_MOTOR_POWER = 10
 
+CONST_SPEAKER_VOLUME = 100
+CONST_SPEAKER_DURATION = 100
+CONST_SPEAKER_FREQ = 1000
+
 OUT_CURRENT_COLOR = 0
 
 f = EV3File.OpenRead("settings.pid")
@@ -36,7 +42,7 @@ CONST_LINE_PID_D_COEFFICIENT = EV3File.ConvertToNumber(EV3File.ReadLine(f))
 CONST_LINE_POWER = EV3File.ConvertToNumber(EV3File.ReadLine(f))
 EV3File.Close(f)
 
-If CONST_COLOR_SENSOR_PORT <> 0 Then
+If CONST_COLOR_SENSOR_PORT > 0 Then
   Sensor.SetMode(CONST_COLOR_SENSOR_PORT,4)
 EndIf
 
@@ -87,15 +93,30 @@ Function ReadColor(out number color)
   color = 6
   If Math.Abs(r-g) < 0.05 And Math.Abs(g-b) < 0.05 Then
     color = 1
+    If @CONST_COLOR_RECOGNITION_SAY = 1 Then
+      Speaker.Play(@CONST_SPEAKER_VOLUME, "White")
+    EndIf
   Else
     If Math.Abs(h-@CONST_COLOR_RECOGNITION_BLUE_VALUE) < spread Then
       color = 2
+      If @CONST_COLOR_RECOGNITION_SAY = 1 Then
+        Speaker.Play(@CONST_SPEAKER_VOLUME, "Blue")
+      EndIf
     ElseIf Math.Abs(h-@CONST_COLOR_RECOGNITION_GREEN_VALUE) < spread Then
       color = 3
+      If @CONST_COLOR_RECOGNITION_SAY = 1 Then
+        Speaker.Play(@CONST_SPEAKER_VOLUME, "Green")
+      EndIf
     ElseIf Math.Abs(h-@CONST_COLOR_RECOGNITION_YELLOW_VALUE) < spread Then
       color = 4
+      If @CONST_COLOR_RECOGNITION_SAY = 1 Then
+        Speaker.Play(@CONST_SPEAKER_VOLUME, "Yellow")
+      EndIf
     ElseIf Math.Abs(h-@CONST_COLOR_RECOGNITION_RED_VALUE) < spread Then
       color = 5
+      If @CONST_COLOR_RECOGNITION_SAY = 1 Then
+        Speaker.Play(@CONST_SPEAKER_VOLUME, "Red")
+      EndIf
     EndIf
   EndIf
   LCD.Text(1,0,80,2,color)
@@ -142,6 +163,10 @@ EndFunction
 
 Function Reversal()
   Motor.MoveSync("BC",20,-20,340,"true")
+EndFunction
+
+Function Tone()
+  Speaker.Tone(@CONST_SPEAKER_VOLUME, @CONST_SPEAKER_FREQ, @CONST_SPEAKER_DURATION)
 EndFunction
 
 Function LineDistance(in number cm)
@@ -198,7 +223,7 @@ Function LineCross()
     
     Program.Delay(10)
   EndWhile
-  Forward(5)
+  Forward(@CONST_LINE_CROSS_FORWARD)
   
   MotorBC.OffAndBrake()
 EndFunction
